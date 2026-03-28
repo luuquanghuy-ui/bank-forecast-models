@@ -1,0 +1,11 @@
+.tmp/
+.uvcache/
+.venv-neural/
+.vendor_real/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
