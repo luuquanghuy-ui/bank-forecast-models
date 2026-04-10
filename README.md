@@ -34,28 +34,27 @@ python GARCH_XGBoost/run_garch_sensitivity.py
 # 3. GARCH Variants - So sánh EGARCH, GJR-GARCH
 python GARCH_XGBoost/run_garch_variants.py
 
-# 4. Hybrid Ensemble - Kết hợp GARCH + Ridge
+# 4. Hybrid Ensemble - Kết hợp GARCH + Ridge cho volatility
 python Hybrid_GARCH_DL/run_ensemble.py
 
-# 5. Random Forest - ML baseline
-python Hybrid_GARCH_DL/run_random_forest.py
-
-# 6. NeuralProphet - Deep learning cho price
+# 5. NeuralProphet - Deep learning (price và volatility)
 python NeuralProphet/run_neuralprophet_main.py
 
-# 7. TFT - Transformer cho price
+# 6. TFT - Transformer cho price
 python TemporalFusionTransformer/run_tft_main.py
 ```
 
-### BƯỚC 3: Chạy Analysis tổng hợp
+### BƯỚC 3: Chạy So Sánh Tất Cả Models (QUAN TRỌNG)
 
 ```bash
-# 4-fold Cross-Validation
-python run_4fold_garch_hybrid.py
+# 4-fold Walk-Forward: TẤT CẢ models trên CẢ 2 targets (Price & Volatility)
+python run_4fold_all_models_both_targets.py
 
 # Per-day comparison cho tất cả models
 python run_perday_all_models.py
 ```
+
+**Đây là script so sánh công bằng nhất - tất cả models đều train trên cả price và volatility.**
 
 ### BƯỚC 4: Xem Kết Quả
 
@@ -295,29 +294,25 @@ Nếu cần đọc nhanh, ưu tiên nhìn `RMSE` trước.
 
 ## 11. Thứ tự chạy khuyến nghị
 
-1. Tách dữ liệu:
+1. Tách dữ liệu (nếu chưa có):
 
 ```powershell
 python .\split_by_bank.py
 ```
 
-2. Chạy GARCH_XGBoost main:
+2. Chạy so sánh tất cả models trên cả 2 targets (Price & Volatility):
+
+```powershell
+. .\.venv-neural\Scripts\Activate.ps1
+python .\run_4fold_all_models_both_targets.py
+```
+
+3. (Tùy chọn) Chạy từng model riêng lẻ để xem chi tiết:
 
 ```powershell
 python .\GARCH_XGBoost\run_garch_xgboost_main.py
-```
-
-3. Chạy NeuralProphet main:
-
-```powershell
 . .\.venv-neural\Scripts\Activate.ps1
 python .\NeuralProphet\run_neuralprophet_main.py
-```
-
-4. Chạy TFT main:
-
-```powershell
-. .\.venv-neural\Scripts\Activate.ps1
 python .\TemporalFusionTransformer\run_tft_main.py
 ```
 
@@ -325,16 +320,16 @@ python .\TemporalFusionTransformer\run_tft_main.py
 
 Nếu chỉ cần xem nhanh để hiểu toàn bộ workspace, mở theo thứ tự này:
 
-- `README.md`
-- `GARCH_XGBoost\garch_xgboost_main_results.csv`
-- `NeuralProphet\neuralprophet_main_results.csv`
-- `TemporalFusionTransformer\tft_main_results.csv`
+- `README.md` (file này)
+- `four_fold_all_targets/4fold_all_targets_summary.csv` - Kết quả so sánh TẤT CẢ models
+- `thesis_documentation/PART_3_SYNTHESIS/3.2_final_results.md` - Bảng kết quả cuối cùng
 
 ## 13. Ghi chú quan trọng
 
-- Kết quả hiện tại là kết quả đã chạy thật trên dữ liệu này.
-- Không phải model nào cũng thắng benchmark.
-- Một model thua benchmark vẫn có thể đưa vào báo cáo nếu quy trình chạy đúng, có test set rõ ràng và phần thảo luận trung thực.
+- **RF thắng volatility** trên tất cả 3 ngân hàng trong 4-fold CV
+- **Ridge/Hybrid thắng price** trên tất cả 3 ngân hàng
+- Price prediction bị giới hạn bởi martingale property (E[S_t+1|S_t] = S_t)
+- Volatility prediction có thể cải thiện nhờ volatility clustering
 
 ## 14. Đọc Báo Cáo Thesis
 
