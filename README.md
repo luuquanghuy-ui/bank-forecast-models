@@ -1,5 +1,41 @@
 ﻿# README - Workspace Mô Hình Dự Báo Cho 3 Ngân Hàng
 
+## QUICK START - Setup trong 5 phút
+
+### 1. Clone về
+```bash
+git clone https://github.com/luuquanghuy-ui/bank-forecast-models.git
+cd bank-forecast-models
+```
+
+### 2. Tạo môi trường Python
+```bash
+# Tạo virtual environment
+python -m venv thesis_env
+
+# Activate (Windows)
+thesis_env\Scripts\activate
+
+# Activate (Mac/Linux)
+source thesis_env/bin/activate
+```
+
+### 3. Cài đặt packages
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Chạy thử
+```bash
+# GARCH model (volatility)
+python GARCH_XGBoost/run_garch_xgboost_main.py
+
+# Hybrid ensemble
+python Hybrid_GARCH_DL/run_ensemble.py
+```
+
+---
+
 ## 1. Mục đích
 
 Workspace này được sắp xếp để làm việc với 3 ngân hàng tách riêng:
