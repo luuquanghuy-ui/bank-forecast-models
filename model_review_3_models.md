@@ -243,7 +243,40 @@
 
 ---
 
-## PHẦN 5: TÓM TẮT VÀ KẾT LUẬN
+## PHẦN 5: PER-DAY ALL MODELS COMPARISON
+
+### 5.1 Volatility Prediction Results
+
+| Bank | Naive | GARCH | Hybrid | NP (from price) | TFT (from price) |
+|------|-------|-------|--------|-----------------|------------------|
+| BID | 0.0114 | 0.0095 | **0.0080** | 0.0173 | 0.0093 |
+| CTG | 0.0112 | 0.0097 | **0.0093** | 0.0137 | 0.0107 |
+| VCB | 0.0093 | 0.0083 | **0.0066** | 0.0151 | 0.0081 |
+
+### 5.2 Price Prediction Results
+
+| Bank | Naive | NeuralProphet | TFT |
+|------|-------|--------------|-----|
+| BID | **0.4579** | 1.2455 | 1.2659 |
+| CTG | **0.3439** | 0.6551 | 5.2738 |
+| VCB | **0.5766** | 1.6428 | 2.3158 |
+
+### 5.3 Key Insights
+
+**Volatility Prediction:**
+- Hybrid (GARCH+Ridge) wins ALL 3 banks
+- Improvement over Naive: BID +30%, CTG +17%, VCB +29%
+- TFT (converted from price) performs reasonably on BID/VCB but poorly on CTG
+- NP (converted from price) FAILS - worse than Naive on all banks
+
+**Price Prediction:**
+- Naive is optimal on ALL banks (martingale property confirmed)
+- NP/TFT are 90-300% worse than Naive
+- Complexity does NOT help for price prediction
+
+---
+
+## PHẦN 6: TÓM TẮT VÀ KẾT LUẬN
 
 ### 5.1 Tổng hợp điểm
 
@@ -279,7 +312,7 @@
 
 ---
 
-## PHẦN 6: FILES VÀ SCRIPTS
+## PHẦN 7: FILES VÀ SCRIPTS
 
 ### Scripts đã chạy:
 

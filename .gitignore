@@ -2,6 +2,7 @@
 .uvcache/
 .venv-neural/
 .vendor_real/
+.claude/
 __pycache__/
 *.pyc
 *.pyo
@@ -9,3 +10,4 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ipynb_checkpoints/
+np_env3/
