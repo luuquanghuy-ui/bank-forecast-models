@@ -1,38 +1,67 @@
 ﻿# README - Workspace Mô Hình Dự Báo Cho 3 Ngân Hàng
 
-## QUICK START - Setup trong 5 phút
+## HƯỚNG DẪN CHO NGƯỜI MỚI
 
-### 1. Clone về
+### BƯỚC 1: Clone và Setup (5 phút)
+
 ```bash
+# 1. Clone project
 git clone https://github.com/luuquanghuy-ui/bank-forecast-models.git
 cd bank-forecast-models
-```
 
-### 2. Tạo môi trường Python
-```bash
-# Tạo virtual environment
+# 2. Tạo môi trường ảo
 python -m venv thesis_env
 
-# Activate (Windows)
+# 3. Activate môi trường
+# Windows:
 thesis_env\Scripts\activate
-
-# Activate (Mac/Linux)
+# Mac/Linux:
 source thesis_env/bin/activate
-```
 
-### 3. Cài đặt packages
-```bash
+# 4. Cài packages
 pip install -r requirements.txt
 ```
 
-### 4. Chạy thử
+### BƯỚC 2: Chạy các Model (theo thứ tự)
+
 ```bash
-# GARCH model (volatility)
+# 1. GARCH - Dự báo volatility (chính)
 python GARCH_XGBoost/run_garch_xgboost_main.py
 
-# Hybrid ensemble
+# 2. GARCH Sensitivity - Test độ nhạy
+python GARCH_XGBoost/run_garch_sensitivity.py
+
+# 3. GARCH Variants - So sánh EGARCH, GJR-GARCH
+python GARCH_XGBoost/run_garch_variants.py
+
+# 4. Hybrid Ensemble - Kết hợp GARCH + Ridge
 python Hybrid_GARCH_DL/run_ensemble.py
+
+# 5. Random Forest - ML baseline
+python Hybrid_GARCH_DL/run_random_forest.py
+
+# 6. NeuralProphet - Deep learning cho price
+python NeuralProphet/run_neuralprophet_main.py
+
+# 7. TFT - Transformer cho price
+python TemporalFusionTransformer/run_tft_main.py
 ```
+
+### BƯỚC 3: Chạy Analysis tổng hợp
+
+```bash
+# 4-fold Cross-Validation
+python run_4fold_garch_hybrid.py
+
+# Per-day comparison cho tất cả models
+python run_perday_all_models.py
+```
+
+### BƯỚC 4: Xem Kết Quả
+
+Kết quả chính nằm ở:
+- `thesis_documentation/README.md` - ĐỌC ĐẦU TIÊN
+- `thesis_documentation/PART_3_SYNTHESIS/3.2_final_results.md` - Bảng kết quả cuối cùng
 
 ---
 
@@ -306,4 +335,37 @@ Nếu chỉ cần xem nhanh để hiểu toàn bộ workspace, mở theo thứ t
 - Kết quả hiện tại là kết quả đã chạy thật trên dữ liệu này.
 - Không phải model nào cũng thắng benchmark.
 - Một model thua benchmark vẫn có thể đưa vào báo cáo nếu quy trình chạy đúng, có test set rõ ràng và phần thảo luận trung thực.
-- Trước khi bỏ vào đồ án, nên đọc thêm file checklist của từng nhánh để biết còn phải bổ sung gì.
+
+## 14. Đọc Báo Cáo Thesis
+
+**ĐỌC FILE NÀY TRƯỚC:**
+- `thesis_documentation/README.md` - Hướng dẫn đọc toàn bộ
+
+**CẤU TRÚC BÁO CÁO:**
+```
+thesis_documentation/
+├── README.md                    ← ĐỌC ĐẦU TIÊN
+├── PART_0_FOUNDATION/          ← Data, lý thuyết
+│   ├── 0.1_data_description.md
+│   ├── 0.2_problem_formulation.md
+│   └── 0.3_fair_comparison_framework.md
+├── PART_1_MODELS/             ← 4 mô hình
+│   ├── 1.1_garch_model.md
+│   ├── 1.2_neuralprophet_model.md
+│   ├── 1.3_tft_model.md
+│   └── 1.4_hybrid_model.md
+├── PART_2_EVALUATION/          ← Kết quả đánh giá
+│   ├── 2.1_four_fold_cv.md
+│   ├── 2.2_perday_comparison.md
+│   └── ... (5 files)
+└── PART_3_SYNTHESIS/          ← Kết luận
+    ├── 3.1_root_cause_analysis.md
+    ├── 3.2_final_results.md    ← BẢNG KẾT QUẢ
+    └── 3.3_conclusions.md
+```
+
+**THỨ TỰ ĐỌC:**
+1. `thesis_documentation/README.md` (5 phút)
+2. `thesis_documentation/PART_0_FOUNDATION/0.2_problem_formulation.md` (10 phút) - Hiểu TẠI SAO
+3. `thesis_documentation/PART_3_SYNTHESIS/3.2_final_results.md` (5 phút) - Xem KẾT QUẢ
+4. `thesis_documentation/PART_3_SYNTHESIS/3.3_conclusions.md` (5 phút) - KẾT LUẬN
