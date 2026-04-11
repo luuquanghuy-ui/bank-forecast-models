@@ -1,7 +1,7 @@
 """
-4-Fold Walk-Forward: 5 Models for Thesis
+Per-Day Analysis: 5 Models for Thesis
 
-Models:
+Models (5 total):
 - Naive (baseline)
 - XGBoost (core model 1)
 - NeuralProphet (NP) (core model 2)
@@ -22,6 +22,7 @@ from xgboost import XGBRegressor
 from arch import arch_model
 from neuralprophet import NeuralProphet
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 # TFT imports
 import torch
@@ -33,7 +34,7 @@ torch.set_float32_matmul_precision('medium')
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 BASE_DIR = SCRIPT_DIR
-OUTPUT_DIR = BASE_DIR / "four_fold_all_targets"
+OUTPUT_DIR = BASE_DIR / "perday_all_models"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 BANK_FILES = {
@@ -276,54 +277,41 @@ def garch_walkforward(train_ret, test_ret):
 
 def hybrid_vol_walkforward(train_df, test_df, train_ret, test_ret, garch_weight=0.5):
     """Hybrid for volatility: GARCH volatility signal + Ridge"""
-    # GARCH volatility prediction
     garch_pred = garch_walkforward(train_ret, test_ret)
-
-    # Ridge for features
     feature_cols = ["volume_lag1", "volatility_5d", "volatility_20d", "rsi_lag1", "return_lag1", "return_lag2", "return_lag5"]
     X_train = train_df[feature_cols].values
     y_train = train_df["volatility"].values
     X_test = test_df[feature_cols].values
-
-    # Add GARCH volatility as feature
     train_vol = np.abs(train_ret)
     X_train_with_vol = np.column_stack([X_train, train_vol])
     X_test_with_vol = np.column_stack([X_test, garch_pred])
-
     model = Ridge(alpha=1.0)
     model.fit(X_train_with_vol, y_train)
     ridge_pred = model.predict(X_test_with_vol)
-
     return garch_weight * garch_pred + (1 - garch_weight) * ridge_pred
 
 
 def hybrid_price_walkforward(train_df, test_df, train_ret, test_ret, garch_weight=0.3):
     """Hybrid for price: GARCH volatility signal + Ridge"""
-    # GARCH volatility for signal
     garch_vol_test = garch_walkforward(train_ret, test_ret)
     train_vol = np.abs(train_ret)
-
-    # Ridge with GARCH volatility as feature
     feature_cols = ["volume_lag1", "rsi_lag1", "return_lag1", "return_lag2", "return_lag5", "price_lag1", "price_ma5"]
     X_train = train_df[feature_cols].values
     y_train = train_df["close"].values
     X_test = test_df[feature_cols].values
-
-    # Add GARCH volatility signal as additional feature
     X_train_with_vol = np.column_stack([X_train, train_vol])
     X_test_with_vol = np.column_stack([X_test, garch_vol_test])
-
     model = Ridge(alpha=1.0)
     model.fit(X_train_with_vol, y_train)
     pred = model.predict(X_test_with_vol)
     return np.nan_to_num(pred, nan=test_df["close"].iloc[0])
 
 
-# ===== MAIN COMPARISON =====
+# ===== MAIN =====
 
-def run_comparison():
+def main():
     print("=" * 70)
-    print("4-FOLD WALK-FORWARD: 5 MODELS FOR THESIS")
+    print("PER-DAY ANALYSIS: 5 MODELS FOR THESIS")
     print("=" * 70)
     print("Models: Naive, XGBoost, NP, TFT, Hybrid")
     print("Note: GARCH/Ridge only used within Hybrid (not standalone)")
@@ -338,244 +326,236 @@ def run_comparison():
         df = create_features(df)
         n = len(df)
 
-        fold_configs = [
-            (0.50, 0.65, 0.70),
-            (0.65, 0.80, 0.85),
-            (0.80, 0.90, 0.95),
-            (0.90, 0.95, 1.00),
-        ]
+        # Single split: 70% train, 30% test
+        train_end = int(n * 0.70)
+        test_start = train_end
+        test_end = n
 
-        fold_results = []
+        train_df = df.iloc[:train_end].copy().reset_index(drop=True)
+        test_df = df.iloc[test_start:test_end].copy().reset_index(drop=True)
 
-        for fold_idx, (train_pct, val_pct, test_pct) in enumerate(fold_configs):
-            train_end = int(n * train_pct)
-            val_end = int(n * val_pct)
-            test_end = int(n * test_pct)
+        train_ret = train_df["log_return"].values
+        test_ret = test_df["log_return"].values
 
-            if test_end - val_end < 30 or train_end < 500:
-                continue
+        print(f"Train: {train_df['ds'].min().date()} to {train_df['ds'].max().date()} ({len(train_df)} days)")
+        print(f"Test:  {test_df['ds'].min().date()} to {test_df['ds'].max().date()} ({len(test_df)} days)")
 
-            train_df = df.iloc[:train_end].copy()
-            val_df = df.iloc[train_end:val_end].copy()
-            test_df = df.iloc[val_end:test_end].copy()
+        # Initialize results dict
+        results = {
+            "ds": test_df["ds"].values,
+            "actual_price": test_df["close"].values,
+            "actual_volatility": test_df["volatility"].values,
+        }
 
-            train_ret = train_df["log_return"].values
-            val_ret = val_df["log_return"].values
-            test_ret = test_df["log_return"].values
+        # ===== VOLATILITY PREDICTIONS =====
+        print("\n--- VOLATILITY ---")
 
-            if len(test_df) < 30:
-                continue
+        # Naive
+        naive_vol_pred = naive_vol_walkforward(test_ret)
+        naive_vol_mae = mean_absolute_error(np.abs(test_ret), naive_vol_pred)
+        results["naive_vol_pred"] = naive_vol_pred
+        print(f"  Naive:     MAE = {naive_vol_mae:.6f}")
 
-            print(f"\n  Fold {fold_idx+1}: train={train_end}, val={val_end-train_end}, test={test_end-val_end}")
-
-            # ===== VOLATILITY PREDICTION =====
-            # Naive
-            naive_vol_pred = naive_vol_walkforward(test_ret)
-            naive_vol_mae = mean_absolute_error(np.abs(test_ret), naive_vol_pred)
-
-            # XGBoost
+        # XGBoost
+        try:
             xgb_vol_pred = xgboost_vol_walkforward(train_df, test_df)
             xgb_vol_mae = mean_absolute_error(np.abs(test_ret), xgb_vol_pred)
+            results["xgb_vol_pred"] = xgb_vol_pred
+            print(f"  XGBoost:   MAE = {xgb_vol_mae:.6f}")
+        except Exception as e:
+            print(f"  XGBoost:   ERROR - {e}")
+            xgb_vol_mae = np.nan
 
-            # NP
-            try:
-                np_vol_pred = np_vol_walkforward(train_df, test_df)
-                np_vol_pred = np_vol_pred[:len(test_ret)]
-                np_vol_mae = mean_absolute_error(np.abs(test_ret), np_vol_pred)
-            except Exception as e:
-                np_vol_mae = np.nan
+        # NeuralProphet
+        try:
+            np_vol_pred = np_vol_walkforward(train_df, test_df)
+            np_vol_pred = np_vol_pred[:len(test_ret)]
+            np_vol_mae = mean_absolute_error(np.abs(test_ret), np_vol_pred)
+            results["np_vol_pred"] = np_vol_pred
+            print(f"  NP:        MAE = {np_vol_mae:.6f}")
+        except Exception as e:
+            print(f"  NP:        ERROR - {e}")
+            np_vol_mae = np.nan
 
-            # TFT
-            try:
-                tft_vol_pred = tft_vol_walkforward(train_df, test_df, bank)
-                tft_vol_pred = tft_vol_pred[:len(test_ret)]
-                tft_vol_mae = mean_absolute_error(np.abs(test_ret), tft_vol_pred)
-            except Exception as e:
-                tft_vol_mae = np.nan
+        # TFT
+        try:
+            tft_vol_pred = tft_vol_walkforward(train_df, test_df, bank)
+            tft_vol_pred = tft_vol_pred[:len(test_ret)]
+            tft_vol_mae = mean_absolute_error(np.abs(test_ret), tft_vol_pred)
+            results["tft_vol_pred"] = tft_vol_pred
+            print(f"  TFT:       MAE = {tft_vol_mae:.6f}")
+        except Exception as e:
+            print(f"  TFT:       ERROR - {e}")
+            tft_vol_mae = np.nan
 
-            # Hybrid
+        # Hybrid
+        try:
             hybrid_vol_pred = hybrid_vol_walkforward(train_df, test_df, train_ret, test_ret, 0.5)
             hybrid_vol_mae = mean_absolute_error(np.abs(test_ret), hybrid_vol_pred)
+            results["hybrid_vol_pred"] = hybrid_vol_pred
+            print(f"  Hybrid:    MAE = {hybrid_vol_mae:.6f}")
+        except Exception as e:
+            print(f"  Hybrid:    ERROR - {e}")
+            hybrid_vol_mae = np.nan
 
-            np_str = f"{np_vol_mae:.4f}" if not np.isnan(np_vol_mae) else "ERR"
-            tft_str = f"{tft_vol_mae:.4f}" if not np.isnan(tft_vol_mae) else "ERR"
-            print(f"    VOL: Naive={naive_vol_mae:.4f}, XGB={xgb_vol_mae:.4f}, NP={np_str}, TFT={tft_str}, Hybrid={hybrid_vol_mae:.4f}")
+        # ===== PRICE PREDICTIONS =====
+        print("\n--- PRICE ---")
 
-            # ===== PRICE PREDICTION =====
-            # Naive
-            naive_price_pred = naive_price_walkforward(test_df)
-            naive_price_mae = mean_absolute_error(test_df["close"].values, naive_price_pred)
+        # Naive
+        naive_price_pred = naive_price_walkforward(test_df)
+        naive_price_mae = mean_absolute_error(test_df["close"].values, naive_price_pred)
+        results["naive_price_pred"] = naive_price_pred
+        print(f"  Naive:     MAE = {naive_price_mae:.6f}")
 
-            # XGBoost
+        # XGBoost
+        try:
             xgb_price_pred = xgboost_price_walkforward(train_df, test_df)
             xgb_price_mae = mean_absolute_error(test_df["close"].values, xgb_price_pred)
+            results["xgb_price_pred"] = xgb_price_pred
+            print(f"  XGBoost:   MAE = {xgb_price_mae:.6f}")
+        except Exception as e:
+            print(f"  XGBoost:   ERROR - {e}")
+            xgb_price_mae = np.nan
 
-            # NP
-            try:
-                np_price_pred = np_price_walkforward(train_df, test_df)
-                np_price_pred = np_price_pred[:len(test_df)]
-                np_price_mae = mean_absolute_error(test_df["close"].values, np_price_pred)
-            except Exception as e:
-                np_price_mae = np.nan
+        # NeuralProphet
+        try:
+            np_price_pred = np_price_walkforward(train_df, test_df)
+            np_price_pred = np_price_pred[:len(test_df)]
+            np_price_mae = mean_absolute_error(test_df["close"].values, np_price_pred)
+            results["np_price_pred"] = np_price_pred
+            print(f"  NP:        MAE = {np_price_mae:.6f}")
+        except Exception as e:
+            print(f"  NP:        ERROR - {e}")
+            np_price_mae = np.nan
 
-            # TFT
-            try:
-                tft_price_pred = tft_price_walkforward(train_df, test_df, bank)
-                tft_price_pred = tft_price_pred[:len(test_df)]
-                tft_price_mae = mean_absolute_error(test_df["close"].values, tft_price_pred)
-            except Exception as e:
-                tft_price_mae = np.nan
+        # TFT
+        try:
+            tft_price_pred = tft_price_walkforward(train_df, test_df, bank)
+            tft_price_pred = tft_price_pred[:len(test_df)]
+            tft_price_mae = mean_absolute_error(test_df["close"].values, tft_price_pred)
+            results["tft_price_pred"] = tft_price_pred
+            print(f"  TFT:       MAE = {tft_price_mae:.6f}")
+        except Exception as e:
+            print(f"  TFT:       ERROR - {e}")
+            tft_price_mae = np.nan
 
-            # Hybrid
+        # Hybrid
+        try:
             hybrid_price_pred = hybrid_price_walkforward(train_df, test_df, train_ret, test_ret, 0.3)
             hybrid_price_mae = mean_absolute_error(test_df["close"].values, hybrid_price_pred)
+            results["hybrid_price_pred"] = hybrid_price_pred
+            print(f"  Hybrid:    MAE = {hybrid_price_mae:.6f}")
+        except Exception as e:
+            print(f"  Hybrid:    ERROR - {e}")
+            hybrid_price_mae = np.nan
 
-            np_p_str = f"{np_price_mae:.4f}" if not np.isnan(np_price_mae) else "ERR"
-            tft_p_str = f"{tft_price_mae:.4f}" if not np.isnan(tft_price_mae) else "ERR"
-            print(f"    PRI: Naive={naive_price_mae:.4f}, XGB={xgb_price_mae:.4f}, NP={np_p_str}, TFT={tft_p_str}, Hybrid={hybrid_price_mae:.4f}")
+        # Save per-day CSV
+        df_results = pd.DataFrame(results)
+        df_results.to_csv(OUTPUT_DIR / f"{bank}_perday_all.csv", index=False)
+        print(f"\nSaved: {OUTPUT_DIR / f'{bank}_perday_all.csv'}")
 
-            fold_results.append({
-                "fold": fold_idx + 1,
-                "train_n": train_end,
-                "test_n": len(test_df),
-                # Volatility
-                "naive_vol_mae": naive_vol_mae,
-                "xgb_vol_mae": xgb_vol_mae,
-                "np_vol_mae": np_vol_mae,
-                "tft_vol_mae": tft_vol_mae,
-                "hybrid_vol_mae": hybrid_vol_mae,
-                # Price
-                "naive_price_mae": naive_price_mae,
-                "xgb_price_mae": xgb_price_mae,
-                "np_price_mae": np_price_mae,
-                "tft_price_mae": tft_price_mae,
-                "hybrid_price_mae": hybrid_price_mae,
-            })
+        # Find best models
+        vol_maes = {"Naive": naive_vol_mae, "XGBoost": xgb_vol_mae, "NP": np_vol_mae, "TFT": tft_vol_mae, "Hybrid": hybrid_vol_mae}
+        price_maes = {"Naive": naive_price_mae, "XGBoost": xgb_price_mae, "NP": np_price_mae, "TFT": tft_price_mae, "Hybrid": hybrid_price_mae}
 
-        if fold_results:
-            df_folds = pd.DataFrame(fold_results)
-            avg = df_folds.mean(numeric_only=True)
+        best_vol = min((k for k in vol_maes if not np.isnan(vol_maes[k])), key=lambda k: vol_maes[k])
+        best_price = min((k for k in price_maes if not np.isnan(price_maes[k])), key=lambda k: price_maes[k])
 
-            print(f"\n  AVERAGE ({len(fold_results)} folds):")
-            print(f"    VOLATILITY:")
-            print(f"      Naive:   {avg['naive_vol_mae']:.6f}")
-            print(f"      XGBoost: {avg['xgb_vol_mae']:.6f}")
-            print(f"      NP:      {avg['np_vol_mae']:.6f}")
-            print(f"      TFT:     {avg['tft_vol_mae']:.6f}")
-            print(f"      Hybrid:  {avg['hybrid_vol_mae']:.6f}")
-            print(f"    PRICE:")
-            print(f"      Naive:   {avg['naive_price_mae']:.6f}")
-            print(f"      XGBoost: {avg['xgb_price_mae']:.6f}")
-            print(f"      NP:      {avg['np_price_mae']:.6f}")
-            print(f"      TFT:     {avg['tft_price_mae']:.6f}")
-            print(f"      Hybrid:  {avg['hybrid_price_mae']:.6f}")
+        all_results.append({
+            "bank": bank,
+            "n_days": len(test_df),
+            "naive_vol_mae": naive_vol_mae,
+            "xgb_vol_mae": xgb_vol_mae,
+            "np_vol_mae": np_vol_mae,
+            "tft_vol_mae": tft_vol_mae,
+            "hybrid_vol_mae": hybrid_vol_mae,
+            "naive_price_mae": naive_price_mae,
+            "xgb_price_mae": xgb_price_mae,
+            "np_price_mae": np_price_mae,
+            "tft_price_mae": tft_price_mae,
+            "hybrid_price_mae": hybrid_price_mae,
+            "best_vol": best_vol,
+            "best_price": best_price,
+        })
 
-            df_folds.to_csv(OUTPUT_DIR / f"{bank}_4fold_5models.csv", index=False)
+        # Create charts
+        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 
-            # Find best volatility
-            vol_models = {
-                "Naive": avg["naive_vol_mae"],
-                "XGBoost": avg["xgb_vol_mae"],
-                "NP": avg["np_vol_mae"],
-                "TFT": avg["tft_vol_mae"],
-                "Hybrid": avg["hybrid_vol_mae"],
-            }
-            best_vol = min(vol_models, key=vol_models.get)
+        # Chart 1: Volatility prediction
+        ax1 = axes[0, 0]
+        ax1.plot(df_results["ds"], df_results["actual_volatility"], "k-", alpha=0.7, label="Actual", linewidth=0.8)
+        ax1.plot(df_results["ds"], df_results["xgb_vol_pred"], "orange", alpha=0.6, label="XGBoost", linewidth=0.8)
+        ax1.plot(df_results["ds"], df_results["hybrid_vol_pred"], "r-", alpha=0.6, label="Hybrid", linewidth=0.8)
+        ax1.set_xlabel("Date")
+        ax1.set_ylabel("|Log Return|")
+        ax1.set_title(f"{bank} - Volatility: XGBoost vs Hybrid vs Actual")
+        ax1.legend()
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+        ax1.tick_params(axis="x", rotation=45)
 
-            # Find best price
-            price_models = {
-                "Naive": avg["naive_price_mae"],
-                "XGBoost": avg["xgb_price_mae"],
-                "NP": avg["np_price_mae"],
-                "TFT": avg["tft_price_mae"],
-                "Hybrid": avg["hybrid_price_mae"],
-            }
-            best_price = min(price_models, key=price_models.get)
+        # Chart 2: Price prediction
+        ax2 = axes[0, 1]
+        ax2.plot(df_results["ds"], df_results["actual_price"], "k-", alpha=0.7, label="Actual", linewidth=0.8)
+        ax2.plot(df_results["ds"], df_results["naive_price_pred"], "gray", alpha=0.6, label="Naive", linewidth=0.8)
+        ax2.plot(df_results["ds"], df_results["hybrid_price_pred"], "r-", alpha=0.6, label="Hybrid", linewidth=0.8)
+        ax2.set_xlabel("Date")
+        ax2.set_ylabel("Price")
+        ax2.set_title(f"{bank} - Price: Hybrid vs Naive vs Actual")
+        ax2.legend()
+        ax2.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+        ax2.tick_params(axis="x", rotation=45)
 
-            all_results.append({
-                "bank": bank,
-                "n_folds": len(fold_results),
-                # Volatility
-                "avg_naive_vol": avg["naive_vol_mae"],
-                "avg_xgb_vol": avg["xgb_vol_mae"],
-                "avg_np_vol": avg["np_vol_mae"],
-                "avg_tft_vol": avg["tft_vol_mae"],
-                "avg_hybrid_vol": avg["hybrid_vol_mae"],
-                # Price
-                "avg_naive_price": avg["naive_price_mae"],
-                "avg_xgb_price": avg["xgb_price_mae"],
-                "avg_np_price": avg["np_price_mae"],
-                "avg_tft_price": avg["tft_price_mae"],
-                "avg_hybrid_price": avg["hybrid_price_mae"],
-                "best_vol": best_vol,
-                "best_price": best_price,
-            })
+        # Chart 3: Volatility MAE comparison
+        ax3 = axes[1, 0]
+        models = ["Naive", "XGB", "NP", "TFT", "Hybrid"]
+        colors = ["gray", "orange", "purple", "brown", "red"]
+        vol_mae_values = [naive_vol_mae, xgb_vol_mae, np_vol_mae if not np.isnan(np_vol_mae) else 0,
+                         tft_vol_mae if not np.isnan(tft_vol_mae) else 0, hybrid_vol_mae]
+        bars = ax3.bar(models, vol_mae_values, color=colors)
+        ax3.set_ylabel("MAE")
+        ax3.set_title(f"{bank} - Volatility MAE (Lower is Better)")
+        for bar, mae in zip(bars, vol_mae_values):
+            ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.0002,
+                    f"{mae:.4f}", ha="center", va="bottom", fontsize=9)
+
+        # Chart 4: Price MAE comparison
+        ax4 = axes[1, 1]
+        price_mae_values = [naive_price_mae, xgb_price_mae if not np.isnan(xgb_price_mae) else 0,
+                           np_price_mae if not np.isnan(np_price_mae) else 0,
+                           tft_price_mae if not np.isnan(tft_price_mae) else 0, hybrid_price_mae]
+        bars = ax4.bar(models, price_mae_values, color=colors)
+        ax4.set_ylabel("MAE")
+        ax4.set_title(f"{bank} - Price MAE (Lower is Better)")
+        for bar, mae in zip(bars, price_mae_values):
+            ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01,
+                    f"{mae:.3f}", ha="center", va="bottom", fontsize=9)
+
+        plt.tight_layout()
+        plt.savefig(OUTPUT_DIR / f"{bank}_all_models_comparison.png", dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"Saved: {OUTPUT_DIR / f'{bank}_all_models_comparison.png'}")
 
     # Save summary
     df_summary = pd.DataFrame(all_results)
-    df_summary.to_csv(OUTPUT_DIR / "4fold_5models_summary.csv", index=False)
-
-    # Chart
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
-    banks = df_summary["bank"].values
-    x = np.arange(len(banks))
-    width = 0.15
-
-    # Volatility chart
-    ax1 = axes[0]
-    models = ["Naive", "XGB", "NP", "TFT", "Hybrid"]
-    colors = ["gray", "orange", "purple", "brown", "red"]
-    vol_maes = {
-        "Naive": df_summary["avg_naive_vol"].values,
-        "XGB": df_summary["avg_xgb_vol"].values,
-        "NP": df_summary["avg_np_vol"].values,
-        "TFT": df_summary["avg_tft_vol"].values,
-        "Hybrid": df_summary["avg_hybrid_vol"].values,
-    }
-
-    for i, (model, color) in enumerate(zip(models, colors)):
-        ax1.bar(x + i*width, vol_maes[model], width, label=model, color=color)
-    ax1.set_ylabel("MAE")
-    ax1.set_title("Volatility Prediction: 5 Models")
-    ax1.set_xticks(x + width * 2)
-    ax1.set_xticklabels(banks)
-    ax1.legend()
-
-    # Price chart
-    ax2 = axes[1]
-    price_maes = {
-        "Naive": df_summary["avg_naive_price"].values,
-        "XGB": df_summary["avg_xgb_price"].values,
-        "NP": df_summary["avg_np_price"].values,
-        "TFT": df_summary["avg_tft_price"].values,
-        "Hybrid": df_summary["avg_hybrid_price"].values,
-    }
-
-    for i, (model, color) in enumerate(zip(models, colors)):
-        ax2.bar(x + i*width, price_maes[model], width, label=model, color=color)
-    ax2.set_ylabel("MAE")
-    ax2.set_title("Price Prediction: 5 Models")
-    ax2.set_xticks(x + width * 2)
-    ax2.set_xticklabels(banks)
-    ax2.legend()
-
-    plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / "4fold_5models_comparison.png", dpi=150)
-    plt.close()
+    df_summary.to_csv(OUTPUT_DIR / "perday_summary.csv", index=False)
 
     print("\n" + "=" * 70)
-    print("SUMMARY: 5 MODELS FOR THESIS")
+    print("SUMMARY: 5 MODELS PER-DAY ANALYSIS")
     print("=" * 70)
-    for _, r in df_summary.iterrows():
-        print(f"\n{r['bank']}:")
-        print(f"  VOLATILITY: Naive={r['avg_naive_vol']:.4f}, XGB={r['avg_xgb_vol']:.4f}, NP={r['avg_np_vol']:.4f}, TFT={r['avg_tft_vol']:.4f}, Hybrid={r['avg_hybrid_vol']:.4f}")
-        print(f"  PRICE: Naive={r['avg_naive_price']:.4f}, XGB={r['avg_xgb_price']:.4f}, NP={r['avg_np_price']:.4f}, TFT={r['avg_tft_price']:.4f}, Hybrid={r['avg_hybrid_price']:.4f}")
-        print(f"  BEST VOLATILITY: {r['best_vol']}, BEST PRICE: {r['best_price']}")
+    print("\nVolatility Prediction:")
+    print(f"{'Bank':<6} {'Naive':>8} {'XGBoost':>8} {'NP':>8} {'TFT':>8} {'Hybrid':>8} {'Best':>8}")
+    print("-" * 60)
+    for r in all_results:
+        print(f"{r['bank']:<6} {r['naive_vol_mae']:>8.4f} {r['xgb_vol_mae']:>8.4f} {r['np_vol_mae']:>8.4f} {r['tft_vol_mae']:>8.4f} {r['hybrid_vol_mae']:>8.4f} {r['best_vol']:>8}")
+
+    print("\nPrice Prediction:")
+    print(f"{'Bank':<6} {'Naive':>8} {'XGBoost':>8} {'NP':>8} {'TFT':>8} {'Hybrid':>8} {'Best':>8}")
+    print("-" * 60)
+    for r in all_results:
+        print(f"{r['bank']:<6} {r['naive_price_mae']:>8.4f} {r['xgb_price_mae']:>8.4f} {r['np_price_mae']:>8.4f} {r['tft_price_mae']:>8.4f} {r['hybrid_price_mae']:>8.4f} {r['best_price']:>8}")
 
     print(f"\n\nSaved to: {OUTPUT_DIR}/")
-    return df_summary
 
 
 if __name__ == "__main__":
-    run_comparison()
+    main()
