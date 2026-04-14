@@ -12,7 +12,7 @@
 ### Kết quả chính
 | Mục tiêu | Mô hình tốt nhất |
 |----------|-----------------|
-| **Volatility** | XGBoost (9-29% tốt hơn Naive) |
+| **Volatility** | TFT (Temporal Fusion Transformer) |
 | **Price** | Hybrid GARCH+Ridge (35-41% tốt hơn Naive) |
 
 ### Chạy mô hình

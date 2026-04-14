@@ -192,7 +192,8 @@ def tft_vol_walkforward(train_df, test_df, bank="UNKNOWN"):
     pred_dataloader = pred_dataset.to_dataloader(batch_size=64, num_workers=0, shuffle=False)
 
     raw_preds = tft.predict(pred_dataloader, mode="raw", return_x=True)
-    all_preds = raw_preds[0].prediction.cpu().numpy()[:, 0, 4].tolist()
+    # FIX: Index 3 = median (quantile 0.5), not index 4 (quantile 0.75)
+    all_preds = raw_preds[0].prediction.cpu().numpy()[:, 0, 3].tolist()
 
     return np.array(all_preds)
 
@@ -248,7 +249,8 @@ def tft_price_walkforward(train_df, test_df, bank="UNKNOWN"):
     pred_dataloader = pred_dataset.to_dataloader(batch_size=64, num_workers=0, shuffle=False)
 
     raw_preds = tft.predict(pred_dataloader, mode="raw", return_x=True)
-    all_preds = raw_preds[0].prediction.cpu().numpy()[:, 0, 4].tolist()
+    # FIX: Index 3 = median (quantile 0.5), not index 4 (quantile 0.75)
+    all_preds = raw_preds[0].prediction.cpu().numpy()[:, 0, 3].tolist()
 
     return np.array(np.nan_to_num(all_preds, nan=test_df["close"].iloc[0]))
 
