@@ -1,0 +1,7 @@
+test,method,statistic,p_value,significant,detail
+Day-of-Week Effect,Kruskal-Wallis,5.650849829068301,0.2267844290067547,False,H0: all days have same return distribution
+Monday Effect,Mann-Whitney U,471045.0,0.2092816801219215,False,Monday mean=-0.001240
+Friday Effect,Mann-Whitney U,491428.0,0.507763309520803,False,Friday mean=0.000669
+Month-of-Year Effect,Kruskal-Wallis,18.326801175032386,0.07430091572576589,False,H0: all months have same return distribution
+January Effect,Mann-Whitney U,247353.5,0.002939921426374257,True,January mean=0.004502
+Quarter-End Effect,Mann-Whitney U,214679.5,0.12924856077211994,False,"Quarter-end mean=-0.001727, Other mean=0.000855"
