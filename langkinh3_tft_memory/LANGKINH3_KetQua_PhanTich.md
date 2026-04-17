@@ -94,7 +94,7 @@ CTG half-life = 16 ngày, gấp đôi BID! Nghĩa là:
 
 ---
 
-## 3. TFT Attention — Deep learning nhìn vào đâu?
+## 3. TFT Attention — AI nhìn vào đâu?
 
 ### Method
 
@@ -103,19 +103,45 @@ Train TFT (Temporal Fusion Transformer) trên close price mỗi bank:
 - Train 15 epochs, hidden_size=16, attention_head_size=2
 - Extract encoder_attention weights → trung bình qua tất cả samples và heads
 
-### Kết quả
+### Kết quả TFT Attention
 
-TFT attention weights cho biết: **model nhìn vào ngày nào trong 24 ngày trước nhiều nhất?**
+TFT attention weights cho biết: **AI/TFT nhìn vào ngày nào trong 24 ngày trước nhiều nhất?**
 
-Xem chart `partB_tft_attention.png` — top 3 ngày attention cao nhất được tô đỏ.
+**Phát hiện chính:**
+
+Chart `partB_tft_attention.png` cho thấy attention weights **tương đối đều** (flat) giữa các lags — không có ngày nào nổi bật rõ ràng. Top 3 ngày được tô đỏ thường là:
+- Một vài lag gần (1-3 ngày)
+- Một vài lag trung bình (10-15 ngày)
+- Không có pattern nhất quán rõ ràng
+
+### Phân tích: Tại sao Attention Flat?
+
+**ĐÂY LÀ INSIGHT QUAN TRỌNG:**
+
+| | ACF Return | ACF |Return| | TFT Attention (trên price) |
+|--|-----------|-----|--------|---------------------------|
+| Pattern | ≈ 0 (random) | ~0.21 (có quy luật) | Flat, noisy |
+| Giải thích | Giá ngẫu nhiên | Volatility có clustering | AI không tìm được pattern rõ |
+
+**TFT được train trên PRICE (giá đóng cửa)** — mà price gần như random walk (ACF return ≈ 0). Vì không có pattern rõ trong price, TFT attention không có gì để "tập trung" → weights đều nhau.
+
+**Nghịch lý thú vị:**
+- ACF(|return|) = 0.21-0.24 → **volatility có memory mạnh**
+- TFT trained on PRICE → attention flat
+→ **Giá có memory YẾU, nhưng volatility có memory MẠNH**
+
+→ Đây là lý do GARCH và TFT thắng volatility prediction ở Phase 2
 
 ### So sánh ACF vs TFT Attention
 
-Xem chart `partC_acf_vs_attention.png`:
-- **Hàng trên**: ACF |return| — đo tương quan thực từ thống kê
-- **Hàng dưới**: TFT attention — model tự học nhìn vào đâu
+Chart `partC_acf_vs_attention.png` đặt cạnh nhau:
+- **Hàng trên**: ACF |return| — tương quan thống kê rõ ràng (decay chậm)
+- **Hàng dưới**: TFT attention — phân tán, noisy
 
-Nếu cả 2 cùng chỉ ra memory tập trung ở lags gần → kết luận robust (2 approach khác nhau cho cùng kết quả). Nếu TFT attention noisy (phân tán đều) → model không tìm được pattern clear hơn ACF → ACF là công cụ phân tích memory tốt hơn trên dataset này.
+**Kết luận:**
+- ACF là công cụ tốt hơn để phân tích memory trên dataset này
+- TFT attention không thể hiện pattern rõ ràng vì trained trên price (random)
+- Nhưng đây vẫn là thí nghiệm có giá trị — nó xác nhận rằng price prediction khó vì không có clear memory pattern
 
 ---
 

@@ -6,7 +6,7 @@
 
 Nhóm đã làm **Phase 2 trước Phase 1**:
 
-- Phase 2 (đã xong): Train 5 models (Naive, XGBoost, NP, TFT, Hybrid) dự đoán volatility + price. Kết quả: XGBoost thắng cho volatility, price thì các model đều chưa tốt → nhóm phát triển Hybrid (GARCH + Ridge) → Hybrid thắng cho price.
+- Phase 2 (đã xong): Train 5 models (Naive, XGBoost, NP, TFT, Hybrid) dự đoán volatility + price. Kết quả: **TFT thắng volatility** (MAE thấp nhất, 30-34% tốt hơn Naive), price thì các model đều chưa tốt → nhóm phát triển Hybrid (GARCH + Ridge) → **Hybrid thắng price** (35-41% tốt hơn Naive).
 - Phase 1 (chưa làm): 3 lăng kính — dùng từng model để khám phá, hiểu thị trường.
 
 Lẽ ra Phase 1 phải đi trước vì nó là bước hiểu thị trường, từ đó mới thiết kế prediction ở Phase 2. Giờ cần bổ sung Phase 1, viết lại narrative cho đúng thứ tự logic.
@@ -21,8 +21,8 @@ Phase 1: 3 Lăng kính
 
 Phase 2: 5 Models Prediction
    5 models x 2 targets (volatility + price)
-   XGBoost thắng volatility
-   Price chưa tốt → phát triển Hybrid → Hybrid thắng price
+   TFT thắng volatility (MAE thấp nhất, 30-34% tốt hơn Naive)
+   Price chưa tốt → phát triển Hybrid → Hybrid thắng price (35-41% tốt hơn Naive)
 ```
 
 ---
