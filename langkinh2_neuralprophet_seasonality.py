@@ -9,6 +9,9 @@ Chạy: python langkinh2_neuralprophet_seasonality.py
 Output: langkinh2_neuralprophet_seasonality/
 """
 
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+
 import pandas as pd
 import numpy as np
 import matplotlib

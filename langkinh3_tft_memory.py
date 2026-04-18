@@ -9,6 +9,9 @@ Chay: .venv-neural/Scripts/python langkinh3_tft_memory.py
 Output: langkinh3_tft_memory/
 """
 
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+
 import pandas as pd
 import numpy as np
 import matplotlib

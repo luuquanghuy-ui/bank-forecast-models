@@ -8,6 +8,9 @@ Chạy: python langkinh1_xgboost_shap.py
 Output: langkinh1_xgboost_shap/
 """
 
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+
 import pandas as pd
 import numpy as np
 import matplotlib
