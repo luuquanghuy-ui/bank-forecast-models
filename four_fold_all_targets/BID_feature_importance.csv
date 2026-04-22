@@ -1,0 +1,16 @@
+feature,label,group,mean_abs_shap,std_abs_shap,rank
+volume_ratio,Volume Ratio,Technical,0.0046980726,0.0045228438,1
+ma_ratio,Price / MA20,Technical,0.0032620959,0.0021036125,2
+rsi_lag1,RSI (t-1),Technical,0.0023989927,0.002061653,3
+ma50_ratio,Price / MA50,Technical,0.0023919346,0.0011826295,4
+usd_vnd_lag1,USD/VND (t-1),Macro,0.0020764216,0.0008903883,5
+volatility_lag1,Volatility 20d (t-1),Technical,0.0016620214,0.0010478446,6
+volatility_lag2,Volatility 20d (t-2),Technical,0.0012176111,0.0006560408,7
+return_lag1,Return (t-1),Technical,0.00070010626,0.0010289272,8
+volume_lag1,Volume (t-1),Technical,0.00044065737,0.0007393015,9
+return_lag5,Return (t-5),Technical,0.00038034175,0.0005379856,10
+return_lag2,Return (t-2),Technical,0.0003571772,0.00038151155,11
+return_lag3,Return (t-3),Technical,0.00030738805,0.0008461623,12
+vnindex_lag1,VNIndex (t-1),Macro,0.00028718446,0.0008148721,13
+vn30_lag1,VN30 (t-1),Macro,0.00027016414,0.00022733332,14
+interest_rate_lag1,Interest Rate (t-1),Macro,0.000101451675,7.416e-05,15
